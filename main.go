@@ -175,13 +175,18 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 		return
 	}
 
-	pods, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+	lo := metav1.ListOptions{}
+	if LabelSelector != "" {
+		lo.LabelSelector = LabelSelector
+	}
+
+	pods, err := client.CoreV1().Pods(namespace).List(context.TODO(), lo)
 	if err != nil {
 		log.WithError(err).Errorf("Could not get pods in namespace %s: %v", namespace, err)
 		return
 	}
 
-	log.Infof("Applying template %s to %v", TemplatePath, pods)
+	log.Infof("Applying template %s to %v", TemplatePath, getPodNames(pods.Items))
 
 	var out = &bytes.Buffer{}
 	err = tpl.Execute(out, &struct {
@@ -222,6 +227,8 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 		log.WithError(err).Errorf("Failed patching map %s/%s: %v", namespace, ConfigName, err)
 		return
 	}
+
+	log.Debugf("ConfigMap %s/%s patched", namespace, ConfigName)
 }
 
 func watchPods(client kubernetes.Interface, namespace string, store cache.Store) cache.Store {
