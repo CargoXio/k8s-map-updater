@@ -17,6 +17,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -79,6 +80,36 @@ func getPodNames(pods []v1.Pod) []string {
 	return res
 }
 
+func toFloat64(ifc interface{}) float64 {
+	if ifc == nil {
+		return 0.0
+	}
+	if i, ok := ifc.(int); ok {
+		return float64(i)
+	} else if i, ok := ifc.(int64); ok {
+		return float64(i)
+	} else if i, ok := ifc.(int8); ok {
+		return float64(i)
+	} else if i, ok := ifc.(float32); ok {
+		return float64(i)
+	} else if i, ok := ifc.(float64); ok {
+		return i
+	} else if i, ok := ifc.(string); ok {
+		if i == "" {
+			return 0.0
+		}
+		f, err := strconv.ParseFloat(i, 64)
+		if err != nil {
+			panic(errors.Wrapf(err, "Could not convert %q to float64: %v", i, err))
+		}
+		return f
+	} else if i, ok := ifc.(fmt.Stringer); ok {
+		return toFloat64(i.String())
+	} else {
+		panic(errors.Errorf("Could not convert %q to float64!", ifc))
+	}
+}
+
 func getTemplate() (*template.Template, error) {
 	b, err := ioutil.ReadFile(TemplatePath)
 	if err != nil {
@@ -118,14 +149,16 @@ func getTemplate() (*template.Template, error) {
 			log.Debugf("Filtered pods by label %s: %v", label, getPodNames(res))
 			return
 		},
-		"ceil": func(num float64) int64 {
-			return int64(math.Ceil(num))
+		"ceil": func(num interface{}) int64 {
+			return int64(math.Ceil(toFloat64(num)))
 		},
-		"sum": func(num1, num2 float64) float64 {
-			return num1 + num2
+		"sum": func(num1, num2 interface{}) float64 {
+			return toFloat64(num1) + toFloat64(num2)
 		},
-		"div": func(num1, num2 int) float64 {
-			return float64(num1) / float64(num2)
+		"div": func(num1, num2 interface{}) float64 {
+			n1 := toFloat64(num1)
+			n2 := toFloat64(num2)
+			return n1 / n2
 		},
 	}).Parse(string(b))
 	if err != nil {
