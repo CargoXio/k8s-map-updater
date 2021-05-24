@@ -71,7 +71,39 @@ func getTemplate() (*template.Template, error) {
 		return nil, errors.Wrapf(err, "Could not read file: %s", TemplatePath)
 	}
 
-	tpl, err := template.New("config").Parse(string(b))
+	tpl, err := template.New("config").Funcs(template.FuncMap{
+		"filterByLabel": func(pods *v1.PodList, label string) (res *v1.PodList) {
+			res = &v1.PodList{}
+			res.TypeMeta = pods.TypeMeta
+			res.ListMeta = pods.ListMeta
+			res.Items = make([]v1.Pod, 0)
+
+			var key, val string
+			if strings.Contains(label, ":") {
+				v := strings.SplitN(label, ":", 2)
+				key = strings.TrimSpace(v[0])
+				val = strings.TrimSpace(v[1])
+			} else {
+				key = strings.TrimSpace(label)
+				val = ""
+			}
+
+		outer:
+			for _, pod := range pods.Items {
+				for k, v := range pod.Labels {
+					if k == key {
+						if val == "" || v == val {
+							res.Items = append(res.Items, pod)
+							continue outer
+						}
+					}
+				}
+			}
+
+			log.Debug("Filtered pods by label %s: %v", label, res.Items)
+			return
+		},
+	}).Parse(string(b))
 	if err != nil {
 		return nil, errors.Wrapf(err, "Could not parse template: %s", TemplatePath)
 	}
