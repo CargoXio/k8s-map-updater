@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"math"
 	"net/http"
 	"os"
 	"path"
@@ -102,6 +103,9 @@ func getTemplate() (*template.Template, error) {
 
 			log.Debug("Filtered pods by label %s: %v", label, res.Items)
 			return
+		},
+		"ceil": func(num float64) int64 {
+			return int64(math.Ceil(num))
 		},
 	}).Parse(string(b))
 	if err != nil {
