@@ -5,21 +5,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8s_runtime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"log"
 	"net/http"
 	"os"
+	"path"
+	"runtime"
 	"strings"
 	"text/template"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/getsentry/sentry-go"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,15 +31,39 @@ import (
 
 const DefaultTemplatePath = "/opt/mapudater/template.tpl"
 const TemplatePathEnvVar = "TEMPLATE_PATH"
+
 var TemplatePath = ""
 
 const DefaultConfigName = "redis-haproxy"
 const ConfigNameEnvVar = "CONFIG_NAME"
+
 var ConfigName = ""
 
 const DefaultKeyName = "haproxy.cfg"
 const KeyNameEnvVar = "KEY_NAME"
+
 var KeyName = ""
+
+// ContextHook ...
+type ContextHook struct{}
+
+// Levels ...
+func (hook ContextHook) Levels() []log.Level {
+	return log.AllLevels
+}
+
+// Fire ...
+func (hook ContextHook) Fire(entry *log.Entry) error {
+	if pc, file, line, ok := runtime.Caller(10); ok {
+		funcName := runtime.FuncForPC(pc).Name()
+
+		entry.Data["file"] = path.Base(file)
+		entry.Data["line"] = line
+		entry.Data["func"] = path.Base(funcName)
+	}
+
+	return nil
+}
 
 func getTemplate() (*template.Template, error) {
 	b, err := ioutil.ReadFile(TemplatePath)
@@ -56,32 +82,32 @@ func getTemplate() (*template.Template, error) {
 func applyTemplate(client kubernetes.Interface, namespace string) {
 	tpl, err := getTemplate()
 	if err != nil {
-		logrus.WithError(err).Error("Could not read template: %v", err)
+		log.WithError(err).Error("Could not read template: %v", err)
 		return
 	}
 
-	pods, err := client.CoreV1().Pods(namespace).List(context.TODO(),  metav1.ListOptions{})
+	pods, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		logrus.WithError(err).Error("Could not get pods in namespace %s: %v", namespace, err)
+		log.WithError(err).Error("Could not get pods in namespace %s: %v", namespace, err)
 		return
 	}
 
-	logrus.Infof("Applying template %s to %v", TemplatePath, pods)
+	log.Infof("Applying template %s to %v", TemplatePath, pods)
 
 	var out = &bytes.Buffer{}
-	err = tpl.Execute(out, &struct{
+	err = tpl.Execute(out, &struct {
 		pods *v1.PodList
 	}{
 		pods: pods,
 	})
 	if err != nil {
-		logrus.WithError(err).Error("Error executing template %v: %v", TemplatePath, err)
+		log.WithError(err).Error("Error executing template %v: %v", TemplatePath, err)
 		return
 	}
 
-	logrus.Infof("Patching configmap %s/%s -> %s", namespace, ConfigName, KeyName)
+	log.Infof("Patching configmap %s/%s -> %s", namespace, ConfigName, KeyName)
 
-	payload := []struct{
+	payload := []struct {
 		Op    string `json:"op"`
 		Path  string `json:"path"`
 		Value string `json:"value"`
@@ -92,7 +118,7 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 	}}
 	data, err := json.Marshal(payload)
 	if err != nil {
-		logrus.WithError(err).Error("Failed converting patch object to JSON: ", err)
+		log.WithError(err).Error("Failed converting patch object to JSON: ", err)
 		return
 	}
 
@@ -102,10 +128,9 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 		types.JSONPatchType,
 		data,
 		metav1.PatchOptions{},
-
-		)
+	)
 	if err != nil {
-		logrus.WithError(err).Error("Failed patching map %s/%s: ", namespace, ConfigName, err)
+		log.WithError(err).Error("Failed patching map %s/%s: ", namespace, ConfigName, err)
 		return
 	}
 
@@ -117,7 +142,7 @@ func watchPods(client kubernetes.Interface, namespace string, store cache.Store)
 	//Setup an informer to call functions when the watchlist changes
 	store, controller := cache.NewInformer(
 		&cache.ListWatch{
-			ListFunc: func(lo metav1.ListOptions) (runtime.Object, error) {
+			ListFunc: func(lo metav1.ListOptions) (k8s_runtime.Object, error) {
 				return client.CoreV1().Pods(namespace).List(context.TODO(), lo)
 			},
 			WatchFunc: func(lo metav1.ListOptions) (watch.Interface, error) {
@@ -129,17 +154,17 @@ func watchPods(client kubernetes.Interface, namespace string, store cache.Store)
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				pod := obj.(*v1.Pod)
-				logrus.Debug("Pod created: %s", pod.ObjectMeta.Name)
+				log.Debug("Pod created: %s", pod.ObjectMeta.Name)
 				applyTemplate(client, namespace)
 			},
 			UpdateFunc: func(old interface{}, obj interface{}) {
 				pod := obj.(*v1.Pod)
-				logrus.Debug("Pod updated: %s", pod.ObjectMeta.Name)
+				log.Debug("Pod updated: %s", pod.ObjectMeta.Name)
 				applyTemplate(client, namespace)
 			},
 			DeleteFunc: func(obj interface{}) {
 				pod := obj.(*v1.Pod)
-				logrus.Debug("Pod deleted: %s", pod.ObjectMeta.Name)
+				log.Debug("Pod deleted: %s", pod.ObjectMeta.Name)
 				applyTemplate(client, namespace)
 			},
 		},
@@ -164,9 +189,9 @@ func watchConfig(client kubernetes.Interface, namespace string) (*fsnotify.Watch
 				if !ok {
 					return
 				}
-				logrus.Debug("event: %v", event)
+				log.Debug("event: %v", event)
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					logrus.Infof("modified file: %s", event.Name)
+					log.Infof("modified file: %s", event.Name)
 					applyTemplate(client, namespace)
 				}
 			case err, ok := <-watcher.Errors:
@@ -187,9 +212,41 @@ func watchConfig(client kubernetes.Interface, namespace string) (*fsnotify.Watch
 }
 
 func main() {
+	log.AddHook(ContextHook{})
+
+	dsn := os.Getenv("SENTRY_DSN")
+	if dsn == "" {
+		// Support the deprecated variable
+		dsn = os.Getenv("SENTRY_URL")
+		if dsn != "" {
+			log.Warnf("Using the deprecated SENTRY_URL variable. Please switch to SENTRY_DSN.")
+		}
+	}
+
+	if dsn != "" {
+		err := sentry.Init(sentry.ClientOptions{
+			// Either set your DSN here or set the SENTRY_DSN environment variable.
+			Dsn: dsn,
+			// Enable printing of SDK debug messages.
+			// Useful when getting started or trying to figure something out.
+			Debug: false,
+		})
+		if err != nil {
+			log.Fatalf("sentry.Init: %s", err)
+		}
+
+		// Flush buffered events before the program terminates.
+		// Set the timeout to the maximum duration the program can afford to wait.
+		defer sentry.Flush(10 * time.Second)
+	} else {
+		log.Debugf("Skipping sentry init")
+	}
+
 	var config *rest.Config
 	var err error
 	var client kubernetes.Interface
+
+	log.Infof("Reading InClusterConfig")
 
 	config, err = rest.InClusterConfig()
 	if err != nil {
@@ -222,7 +279,6 @@ func main() {
 	if err != nil {
 		panic(errors.WithStack(err))
 	}
-
 
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte("OK"))
