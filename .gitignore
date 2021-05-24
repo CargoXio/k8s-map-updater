@@ -1,0 +1,25 @@
+# MacOS droppings
+.DS_Store
+
+# Temporary files
+*.log
+*.tmp
+~*
+
+# Editor directories and files
+.idea
+*.iml
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Our development database
+/db/
+
+
+# Generated files
+src/internal/common/db/migrations/migrations.go
+src/internal/common/db/queries/data.go

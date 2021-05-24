@@ -1,0 +1,35 @@
+include:
+  - project: 'cargox/infrastructure/ci/build'
+    file: '/gitlab-ci-base.yml'
+
+# ☰☰☰☰☰☰ SERVICES ☰☰☰☰☰☰
+services:
+  - docker:19-dind
+
+# ☰☰☰☰☰☰ BUILD STAGES ☰☰☰☰☰☰
+stages:
+  - Build
+  - Deploy
+
+# ☰☰☰☰☰☰ VARIABLES ☰☰☰☰☰☰
+variables:
+  SONAR_SCANNER_EXCLUSIONS: "deploy/***"
+
+# ☰☰☰☰☰☰ BUILD JOBS ☰☰☰☰☰☰
+Test:
+  extends:
+    - .test
+  stage: Build
+
+Tag:
+  extends:
+    - .tag
+  stage: Build
+
+Validate merge request:
+  extends:
+    - .validate
+    - .with-default-coverage-artifacts
+  stage: Build
+
+
