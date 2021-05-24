@@ -45,6 +45,11 @@ const KeyNameEnvVar = "KEY_NAME"
 
 var KeyName = ""
 
+const DefaultLabelSelector = ""
+const LabelSelectorEnvVar = "LABEL_SELECTOR"
+
+var LabelSelector = ""
+
 // ContextHook ...
 type ContextHook struct{}
 
@@ -187,7 +192,6 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 		log.WithError(err).Errorf("Failed patching map %s/%s: %v", namespace, ConfigName, err)
 		return
 	}
-
 }
 
 func watchPods(client kubernetes.Interface, namespace string, store cache.Store) cache.Store {
@@ -197,9 +201,15 @@ func watchPods(client kubernetes.Interface, namespace string, store cache.Store)
 	store, controller := cache.NewInformer(
 		&cache.ListWatch{
 			ListFunc: func(lo metav1.ListOptions) (k8s_runtime.Object, error) {
+				if LabelSelector != "" {
+					lo.LabelSelector = LabelSelector
+				}
 				return client.CoreV1().Pods(namespace).List(context.TODO(), lo)
 			},
 			WatchFunc: func(lo metav1.ListOptions) (watch.Interface, error) {
+				if LabelSelector != "" {
+					lo.LabelSelector = LabelSelector
+				}
 				return client.CoreV1().Pods(namespace).Watch(context.TODO(), lo)
 			},
 		},
@@ -329,6 +339,7 @@ func main() {
 	TemplatePath = getFromEnv(TemplatePathEnvVar, DefaultTemplatePath)
 	ConfigName = getFromEnv(ConfigNameEnvVar, DefaultConfigName)
 	KeyName = getFromEnv(KeyNameEnvVar, DefaultKeyName)
+	LabelSelector = getFromEnv(LabelSelectorEnvVar, DefaultLabelSelector)
 
 	_, err = getTemplate()
 	if err != nil {
