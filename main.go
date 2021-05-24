@@ -124,7 +124,7 @@ func getTemplate() (*template.Template, error) {
 		"sum": func(num1, num2 float64) float64 {
 			return num1 + num2
 		},
-		"div": func(num1, num2 int64) float64 {
+		"div": func(num1, num2 int) float64 {
 			return float64(num1) / float64(num2)
 		},
 	}).Parse(string(b))
