@@ -211,8 +211,19 @@ func watchConfig(client kubernetes.Interface, namespace string) (*fsnotify.Watch
 	return watcher, nil
 }
 
+func getFromEnv(envVar string, defaultValue string) (res string) {
+	res = strings.TrimSpace(os.Getenv(envVar))
+	if res == "" {
+		res = defaultValue
+	}
+	return
+}
+
 func main() {
 	log.AddHook(ContextHook{})
+	log.SetLevel(log.DebugLevel)
+
+	log.Infof("Starting up...")
 
 	dsn := os.Getenv("SENTRY_DSN")
 	if dsn == "" {
@@ -288,13 +299,4 @@ func main() {
 	if err != nil {
 		panic(errors.WithStack(err))
 	}
-
-}
-
-func getFromEnv(envVar string, defaultValue string) (res string) {
-	res = strings.TrimSpace(os.Getenv(envVar))
-	if res == "" {
-		res = defaultValue
-	}
-	return
 }
