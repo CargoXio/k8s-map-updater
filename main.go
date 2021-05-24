@@ -86,11 +86,8 @@ func getTemplate() (*template.Template, error) {
 	}
 
 	tpl, err := template.New("config").Funcs(template.FuncMap{
-		"filterByLabel": func(pods *v1.PodList, label string) (res *v1.PodList) {
-			res = &v1.PodList{}
-			res.TypeMeta = pods.TypeMeta
-			res.ListMeta = pods.ListMeta
-			res.Items = make([]v1.Pod, 0)
+		"filterByLabel": func(pods []v1.Pod, label string) (res []v1.Pod) {
+			res = make([]v1.Pod, 0)
 
 			var key, val string
 			if strings.Contains(label, ":") {
@@ -107,18 +104,18 @@ func getTemplate() (*template.Template, error) {
 			}
 
 		outer:
-			for _, pod := range pods.Items {
+			for _, pod := range pods {
 				for k, v := range pod.Labels {
 					if k == key {
 						if val == "" || v == val {
-							res.Items = append(res.Items, pod)
+							res = append(res, pod)
 							continue outer
 						}
 					}
 				}
 			}
 
-			log.Debugf("Filtered pods by label %s: %v", label, getPodNames(res.Items))
+			log.Debugf("Filtered pods by label %s: %v", label, getPodNames(res))
 			return
 		},
 		"ceil": func(num float64) int64 {
