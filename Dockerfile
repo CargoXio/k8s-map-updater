@@ -9,8 +9,8 @@ WORKDIR /mapupdater/
 COPY go.* /mapupdater/
 RUN go mod download
 COPY *.go /mapupdater/
-RUN go build -ldflags="-linkmode external -extldflags='-static'" -o mapupdater
-RUN upx -9 /mapupdater/go mod downloadmapupdater
+RUN go build -ldflags="-linkmode external -extldflags -static" -o mapupdater
+RUN upx -9 /mapupdater/mapupdater
 
 # ================================================ BUILD MAIN MODULE ===================================================
 FROM alpine:latest
