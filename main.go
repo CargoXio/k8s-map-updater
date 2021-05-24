@@ -259,9 +259,13 @@ func watchPods(client kubernetes.Interface, namespace string, store cache.Store)
 				applyTemplate(client, namespace)
 			},
 			UpdateFunc: func(old interface{}, obj interface{}) {
-				pod := obj.(*v1.Pod)
-				log.Debugf("Pod updated: %s", pod.ObjectMeta.Name)
-				applyTemplate(client, namespace)
+				pod1 := old.(*v1.Pod)
+				pod2 := obj.(*v1.Pod)
+
+				if pod1.Status.PodIP != pod2.Status.PodIP {
+					log.Debugf("Pod updated: %s", pod2.ObjectMeta.Name)
+					applyTemplate(client, namespace)
+				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				pod := obj.(*v1.Pod)
@@ -394,7 +398,8 @@ func main() {
 	}
 
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, req *http.Request) {
-		w.Write([]byte("OK"))
+		log.Debugf("/healthz")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	})
 	err = http.ListenAndServe(":8080", nil)
