@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const DefaultTemplatePath = "/opt/mapudater/template.tpl"
+const DefaultTemplatePath = "/opt/mapupdater/template.tpl"
 const TemplatePathEnvVar = "TEMPLATE_PATH"
 
 var TemplatePath = ""
@@ -66,6 +66,14 @@ func (hook ContextHook) Fire(entry *log.Entry) error {
 	return nil
 }
 
+func getPodNames(pods []v1.Pod) []string {
+	res := make([]string, 0)
+	for _, pod := range pods {
+		res = append(res, pod.Name)
+	}
+	return res
+}
+
 func getTemplate() (*template.Template, error) {
 	b, err := ioutil.ReadFile(TemplatePath)
 	if err != nil {
@@ -82,6 +90,10 @@ func getTemplate() (*template.Template, error) {
 			var key, val string
 			if strings.Contains(label, ":") {
 				v := strings.SplitN(label, ":", 2)
+				key = strings.TrimSpace(v[0])
+				val = strings.TrimSpace(v[1])
+			} else if strings.Contains(label, "=") {
+				v := strings.SplitN(label, "=", 2)
 				key = strings.TrimSpace(v[0])
 				val = strings.TrimSpace(v[1])
 			} else {
@@ -101,7 +113,7 @@ func getTemplate() (*template.Template, error) {
 				}
 			}
 
-			log.Debug("Filtered pods by label %s: %v", label, res.Items)
+			log.Debugf("Filtered pods by label %s: %v", label, getPodNames(res.Items))
 			return
 		},
 		"ceil": func(num float64) int64 {
@@ -124,13 +136,13 @@ func getTemplate() (*template.Template, error) {
 func applyTemplate(client kubernetes.Interface, namespace string) {
 	tpl, err := getTemplate()
 	if err != nil {
-		log.WithError(err).Error("Could not read template: %v", err)
+		log.WithError(err).Errorf("Could not read template: %v", err)
 		return
 	}
 
 	pods, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		log.WithError(err).Error("Could not get pods in namespace %s: %v", namespace, err)
+		log.WithError(err).Errorf("Could not get pods in namespace %s: %v", namespace, err)
 		return
 	}
 
@@ -138,12 +150,12 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 
 	var out = &bytes.Buffer{}
 	err = tpl.Execute(out, &struct {
-		pods *v1.PodList
+		Pods []v1.Pod
 	}{
-		pods: pods,
+		Pods: pods.Items,
 	})
 	if err != nil {
-		log.WithError(err).Error("Error executing template %v: %v", TemplatePath, err)
+		log.WithError(err).Errorf("Error executing template %v: %v", TemplatePath, err)
 		return
 	}
 
@@ -160,7 +172,7 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 	}}
 	data, err := json.Marshal(payload)
 	if err != nil {
-		log.WithError(err).Error("Failed converting patch object to JSON: ", err)
+		log.WithError(err).Errorf("Failed converting patch object to JSON: %v", err)
 		return
 	}
 
@@ -172,7 +184,7 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 		metav1.PatchOptions{},
 	)
 	if err != nil {
-		log.WithError(err).Error("Failed patching map %s/%s: ", namespace, ConfigName, err)
+		log.WithError(err).Errorf("Failed patching map %s/%s: %v", namespace, ConfigName, err)
 		return
 	}
 
@@ -196,17 +208,17 @@ func watchPods(client kubernetes.Interface, namespace string, store cache.Store)
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				pod := obj.(*v1.Pod)
-				log.Debug("Pod created: %s", pod.ObjectMeta.Name)
+				log.Debugf("Pod created: %s", pod.ObjectMeta.Name)
 				applyTemplate(client, namespace)
 			},
 			UpdateFunc: func(old interface{}, obj interface{}) {
 				pod := obj.(*v1.Pod)
-				log.Debug("Pod updated: %s", pod.ObjectMeta.Name)
+				log.Debugf("Pod updated: %s", pod.ObjectMeta.Name)
 				applyTemplate(client, namespace)
 			},
 			DeleteFunc: func(obj interface{}) {
 				pod := obj.(*v1.Pod)
-				log.Debug("Pod deleted: %s", pod.ObjectMeta.Name)
+				log.Debugf("Pod deleted: %s", pod.ObjectMeta.Name)
 				applyTemplate(client, namespace)
 			},
 		},
@@ -231,7 +243,7 @@ func watchConfig(client kubernetes.Interface, namespace string) (*fsnotify.Watch
 				if !ok {
 					return
 				}
-				log.Debug("event: %v", event)
+				log.Debugf("event: %v", event)
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					log.Infof("modified file: %s", event.Name)
 					applyTemplate(client, namespace)
@@ -240,7 +252,7 @@ func watchConfig(client kubernetes.Interface, namespace string) (*fsnotify.Watch
 				if !ok {
 					return
 				}
-				log.Println("error:", err)
+				log.WithError(err).Errorf("error: %v", err)
 			}
 		}
 	}()
