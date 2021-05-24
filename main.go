@@ -107,6 +107,12 @@ func getTemplate() (*template.Template, error) {
 		"ceil": func(num float64) int64 {
 			return int64(math.Ceil(num))
 		},
+		"sum": func(num1, num2 float64) float64 {
+			return num1 + num2
+		},
+		"div": func(num1, num2 float64) float64 {
+			return num1 / num2
+		},
 	}).Parse(string(b))
 	if err != nil {
 		return nil, errors.Wrapf(err, "Could not parse template: %s", TemplatePath)
