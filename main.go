@@ -3,9 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	k8s_runtime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -228,7 +228,7 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 		},
 	}
 
-	data, err := yaml.Marshal(cfg)
+	data, err := json.Marshal(cfg)
 	if err != nil {
 		log.WithError(err).Errorf("Failed converting patch object to JSON: %v", err)
 		return
