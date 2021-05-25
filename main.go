@@ -168,6 +168,27 @@ func getTemplate() (*template.Template, error) {
 	return tpl, nil
 }
 
+func toCRLF(src []byte) string {
+	size := len(src)
+	out := make([]byte, size)
+	pos := 0
+	for i, c := range src {
+		if c == '\n' {
+			// check if previous byte was \r
+			if i == 0 || src[i-1] != '\r' {
+				size++
+				out = append(out, '\000')
+				out[pos] = '\r'
+				pos++
+			}
+		}
+		out[pos] = c
+		pos++
+	}
+
+	return string(out[0:size])
+}
+
 func applyTemplate(client kubernetes.Interface, namespace string) {
 	tpl, err := getTemplate()
 	if err != nil {
@@ -201,16 +222,13 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 
 	log.Infof("Patching configmap %s/%s -> %s", namespace, ConfigName, KeyName)
 
-	payload := []struct {
-		Op    string `json:"op"`
-		Path  string `json:"path"`
-		Value string `json:"value"`
-	}{{
-		Op:    "replace",
-		Path:  fmt.Sprintf("/data/%s", KeyName),
-		Value: out.String(),
-	}}
-	data, err := json.Marshal(payload)
+	cfg := v1.ConfigMap{
+		Data: map[string]string{
+			"KeyName": toCRLF(out.Bytes()),
+		},
+	}
+
+	data, err := json.Marshal(cfg)
 	if err != nil {
 		log.WithError(err).Errorf("Failed converting patch object to JSON: %v", err)
 		return
@@ -219,10 +237,35 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 	_, err = client.CoreV1().ConfigMaps(namespace).Patch(
 		context.TODO(),
 		ConfigName,
-		types.JSONPatchType,
+		types.StrategicMergePatchType,
 		data,
 		metav1.PatchOptions{},
 	)
+
+	/*
+			payload := []struct {
+				Op    string `json:"op"`
+				Path  string `json:"path"`
+				Value string `json:"value"`
+			}{{
+				Op:    "replace",
+				Path:  fmt.Sprintf("/data/%s", KeyName),
+				Value: out.String(),
+			}}
+			data, err := json.Marshal(payload)
+		if err != nil {
+			log.WithError(err).Errorf("Failed converting patch object to JSON: %v", err)
+				return
+			}
+
+			_, err = client.CoreV1().ConfigMaps(namespace).Patch(
+				context.TODO(),
+				ConfigName,
+				types.JSONPatchType,
+				data,
+				metav1.PatchOptions{},
+			)
+	*/
 	if err != nil {
 		log.WithError(err).Errorf("Failed patching map %s/%s: %v", namespace, ConfigName, err)
 		return
@@ -398,11 +441,10 @@ func main() {
 	}
 
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, req *http.Request) {
-		log.Debugf("/healthz")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	})
-	err = http.ListenAndServe(":8080", nil)
+	err = http.ListenAndServe("0.0.0.0:8080", nil)
 	if err != nil {
 		panic(errors.WithStack(err))
 	}
