@@ -14,60 +14,60 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */}}
 
-  {{- if eq .Values.kind "Deployment" }}
+{{- if eq .Values.kind "Deployment" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "haproxy.fullname" . }}
   labels:
-  {{- include "haproxy.labels" . | nindent 4 }}
+    {{- include "haproxy.labels" . | nindent 4 }}
+  {{- if .Values.podAnnotations }}
   annotations:
-  {{ toYaml .Values.annotations | nindent 4 }}
+{{ toYaml .Values.podAnnotations | indent 4 }}
+  {{- end }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-  {{- include "haproxy.selectorLabels" . | nindent 6 }}
+      {{- include "haproxy.selectorLabels" . | nindent 6 }}
   {{- with .Values.strategy }}
   strategy:
-  {{- toYaml . | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
   template:
     metadata:
       labels:
-      {{- include "haproxy.selectorLabels" . | nindent 8 }}
-      {{- if .Values.podLabels }}
-      {{ toYaml .Values.podLabels | indent 8 }}
-      {{- end }}
-      {{- if .Values.podAnnotations }}
+        {{- include "haproxy.selectorLabels" . | nindent 8 }}
+        {{- if .Values.podLabels }}
+{{ toYaml .Values.podLabels | indent 8 }}
+        {{- end }}
       annotations:
         checksum/environment: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-      {{ toYaml .Values.podAnnotations | indent 8 }}
-    {{- end }}
+      {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+      {{- end }}
     spec:
       serviceAccountName: {{ include "haproxy.serviceAccountName" . }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       securityContext:
-      {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      {{- if .Values.dnsConfig }}
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+{{- if .Values.dnsConfig }}
       dnsConfig:
-      {{ toYaml .Values.dnsConfig | indent 8 }}
-      {{- end }}
+{{ toYaml .Values.dnsConfig | indent 8 }}
+{{- end }}
       dnsPolicy: {{ .Values.dnsPolicy }}
-      {{- if .Values.imageCredentials.registry }}
+{{- if .Values.imageCredentials.registry }}
       imagePullSecrets:
-        - name: {{ include "haproxy.fullname" . }}
-      {{- else if .Values.imagePullSecrets }}
-      {{ with .Values.imagePullSecrets }}imagePullSecrets: {{- toYaml . | nindent 8 }}{{- end }}
-      {{- else if .Values.existingImagePullSecret }}
+      - name: {{ include "haproxy.fullname" . }}
+{{- else if .Values.existingImagePullSecret }}
       imagePullSecrets:
-        - name: {{ .Values.existingImagePullSecret }}
-      {{- end }}
-      {{- if .Values.priorityClassName }}
+      - name: {{ .Values.existingImagePullSecret }}
+{{- end }}
+{{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
-      {{- end }}
+{{- end }}
       volumes:
         - name: haproxy-config
           configMap:
@@ -76,7 +76,10 @@ spec:
         - name: {{ $mountedSecret.volumeName }}
           secret:
             secretName: {{ $mountedSecret.secretName }}
-      {{- end }}
+        {{- end }}
+        {{- with.Values.extraVolumes }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           {{- if .Values.securityContext.enabled }}
@@ -95,34 +98,47 @@ spec:
             - -f
             - /usr/local/etc/haproxy/haproxy.cfg
           ports:
-            {{- range $key, $value := .Values.containerPorts }}
+          {{- range $key, $value := .Values.containerPorts }}
             - name: {{ $key }}
               containerPort: {{ $value }}
               protocol: TCP
           {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            tcpSocket:
+              port: {{ .Values.livenessProbe.tcpSocket.port }}
+          {{- end }}
           resources:
-          {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: haproxy-config
               mountPath: /usr/local/etc/haproxy
+            {{- with.Values.extraVolumeMounts }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
             {{- range $mountedSecret := .Values.mountedSecrets }}
             - name: {{ $mountedSecret.volumeName }}
               mountPath: {{ $mountedSecret.mountPath }}
-      {{- end }}
+            {{- end }}
       {{- with.Values.initContainers }}
       initContainers:
-      {{- toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
-      {{- toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.affinity }}
       affinity:
-      {{- toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
-      {{- toYaml . | nindent 8 }}
-  {{- end }}
-  {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

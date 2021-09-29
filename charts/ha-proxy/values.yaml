@@ -32,6 +32,17 @@ image:
 kind: Deployment    # can be 'Deployment' or 'DaemonSet'
 replicaCount: 1   # used only for Deployment mode
 
+# livenessProbe to deployment and daemonset
+livenessProbe:
+  enabled: false
+  failureThreshold: 3
+  successThreshold: 1
+  initialDelaySeconds: 15
+  timeoutSeconds: 1
+  tcpSocket:
+    port: 1024   # modify to your config
+  periodSeconds: 20
+
 ## DaemonSet configuration
 ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
 daemonset:
@@ -44,7 +55,7 @@ daemonset:
 
 ## Init Containers
 ## ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
-initContainers: [ ]
+initContainers: []
 # - name: sysctl
 #   image: "busybox:musl"
 #   command:
@@ -69,14 +80,14 @@ imagePullSecrets: [ ]
 
 ## Container listener port configuration
 ## ref: https://kubernetes.io/docs/concepts/services-networking/connect-applications-service/
-containerPorts: # has to match hostPorts when useHostNetwork is true
+containerPorts:   # has to match hostPorts when useHostNetwork is true
   http: 80
   https: 443
   stat: 1024
 
 ## Deployment strategy definition
 ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
-strategy: { }
+strategy: {}
 #  rollingUpdate:
 #    maxSurge: 25%
 #    maxUnavailable: 25%
@@ -85,6 +96,26 @@ strategy: { }
 ## Pod PriorityClass
 ## ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
 priorityClassName: ""
+
+## Additional volumeMounts to the controller main container
+extraVolumeMounts: []
+## Example empty volume mounts when using securityContext->readOnlyRootFilesystem
+# - name: etc-haproxy
+#   mountPath: /etc/haproxy
+# - name: tmp
+#   mountPath: /tmp
+# - name: var-state-haproxy
+#   mountPath: /var/state/haproxy
+
+## Additional volumes to the controller pod
+extraVolumes: []
+## Example empty volumes when using securityContext->readOnlyRootFilesystem
+# - name: etc-haproxy
+#   emptyDir: {}
+# - name: tmp
+#   emptyDir: {}
+# - name: var-state-haproxy
+#   emptyDir: {}
 
 ## HAProxy daemon configuration
 # ref: https://www.haproxy.org/download/2.2/doc/configuration.txt
@@ -108,14 +139,14 @@ config: |
 
 ## Additional secrets to mount as volumes
 ## This is expected to be an array of dictionaries specifying the volume name, secret name and mount path
-mountedSecrets: [ ]
+mountedSecrets: []
 #  - volumeName: ssl-certificate
 #    secretName: star-example-com
 #    mountPath: /usr/local/etc/ssl
 
 ## Pod Node assignment
 ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-nodeSelector: { }
+nodeSelector: {}
 
 ## Node Taints and Tolerations for pod-node cheduling through attraction/repelling
 ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
@@ -127,11 +158,11 @@ tolerations: [ ]
 
 ## Node Affinity for pod-node scheduling constraints
 ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-affinity: { }
+affinity: {}
 
 ## Pod DNS Config
 ## ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
-dnsConfig: { }
+dnsConfig: {}
 
 ## Pod DNS Policy
 ## Change this to ClusterFirstWithHostNet in case you have useHostNetwork set to true
@@ -140,17 +171,13 @@ dnsPolicy: ClusterFirst
 
 ## Additional labels to add to the pod container metadata
 ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-podLabels: { }
+podLabels: {}
 #  key: value
 
 ## Additional annotations to add to the pod container metadata
 ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-podAnnotations: { }
+podAnnotations: {}
 #  key: value
-#
-
-## Additional annotations to add to the deployment
-annotations: { }
 
 ## Disableable use of Pod Security Policy
 ## ref: https://kubernetes.io/docs/concepts/policy/pod-security-policy/
@@ -159,7 +186,7 @@ podSecurityPolicy:
 
 ## Pod Security Context
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
-podSecurityContext: { }
+podSecurityContext: {}
 
 ## Container Security Context
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
@@ -171,9 +198,9 @@ securityContext:
 ## Compute Resources
 ## ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 resources:
-  #  limits:
-  #    cpu: 100m
-  #    memory: 64Mi
+#  limits:
+#    cpu: 100m
+#    memory: 64Mi
   requests:
     cpu: 100m
     memory: 64Mi
@@ -211,11 +238,15 @@ service:
 
   ## Source IP ranges permitted to access Network Load Balancer
   # ref: https://kubernetes.io/docs/tasks/access-application-cluster/configure-cloud-provider-firewall/
-  loadBalancerSourceRanges: [ ]
+  loadBalancerSourceRanges: []
 
   ## Service annotations
   ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  annotations: { }
+  annotations: {}
+
+  ## Service externalTrafficPolicy
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#external-traffic-policy
+  # externalTrafficPolicy: Cluster
 
 ingress:
   enabled: true

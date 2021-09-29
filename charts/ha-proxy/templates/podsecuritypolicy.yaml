@@ -14,21 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */}}
 
-  {{- if .Values.podSecurityPolicy.create -}}
-  {{- $useHostNetwork := .Values.daemonset.useHostNetwork -}}
-  {{- $useHostPort := .Values.daemonset.useHostPort -}}
-  {{- $hostPorts := .Values.daemonset.hostPorts -}}
+{{- if .Values.podSecurityPolicy.create -}}
+{{- $useHostNetwork := .Values.daemonset.useHostNetwork -}}
+{{- $useHostPort := .Values.daemonset.useHostPort -}}
+{{- $hostPorts := .Values.daemonset.hostPorts -}}
 apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   name: {{ include "haproxy.fullname" . }}
   labels:
-  {{- include "haproxy.labels" . | nindent 4 }}
+    {{- include "haproxy.labels" . | nindent 4 }}
   annotations:
     seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'docker/default,runtime/default'
     apparmor.security.beta.kubernetes.io/allowedProfileNames: 'runtime/default'
-    seccomp.security.alpha.kubernetes.io/defaultProfileName: 'runtime/default'
-    apparmor.security.beta.kubernetes.io/defaultProfileName: 'runtime/default'
+    seccomp.security.alpha.kubernetes.io/defaultProfileName:  'runtime/default'
+    apparmor.security.beta.kubernetes.io/defaultProfileName:  'runtime/default'
 spec:
   allowPrivilegeEscalation: true    # to be able to use privileged containers for initContainers
   allowedCapabilities:
@@ -38,16 +38,16 @@ spec:
     ranges:
       - max: 65535
         min: 1
-  {{- if $useHostNetwork }}
+{{- if $useHostNetwork }}
   hostNetwork: true
-  {{- end }}
-  {{- if or $useHostPort $useHostNetwork }}
+{{- end }}
+{{- if or $useHostPort $useHostNetwork }}
   hostPorts:
-    {{- range $key, $value := .Values.containerPorts }}
-    - min: {{ $value }}
-      max: {{ $value }}
-  {{- end }}
-  {{- end }}
+{{- range $key, $value := .Values.containerPorts }}
+  - min: {{ $value }}
+    max: {{ $value }}
+{{- end }}
+{{- end }}
   hostIPC: false
   hostPID: false
   privileged: true
@@ -65,4 +65,4 @@ spec:
     - emptyDir
     - projected
     - secret
-  {{- end }}
+{{- end }}

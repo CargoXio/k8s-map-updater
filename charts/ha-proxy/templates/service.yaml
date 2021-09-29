@@ -19,15 +19,18 @@ kind: Service
 metadata:
   name: {{ include "haproxy.fullname" . }}
   labels:
-  {{- include "haproxy.labels" . | nindent 4 }}
+    {{- include "haproxy.labels" . | nindent 4 }}
   annotations:
-    {{- range $key, $value := .Values.service.annotations }}
+{{- range $key, $value := .Values.service.annotations }}
     {{ $key }}: {{ $value | quote }}
-  {{- end }}
+{{- end }}
 spec:
   type: {{ .Values.service.type }}
   selector:
-  {{- include "haproxy.selectorLabels" . | nindent 4 }}
+    {{- include "haproxy.selectorLabels" . | nindent 4 }}
+  {{- if .Values.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+  {{- end }}
   {{- with .Values.service.clusterIP }}
   clusterIP: {{ . | quote}}
   {{- end }}
@@ -40,10 +43,10 @@ spec:
   {{- end }}
   {{- with .Values.containerPorts }}
   ports:
-    {{- range $key, $port := . }}
-    - name: {{ $key }}
-      protocol: TCP
-      port: {{ $port }}
-      targetPort: {{ $key }}
+  {{- range $key, $port := . }}
+  - name: {{ $key }}
+    protocol: TCP
+    port: {{ $port }}
+    targetPort: {{ $key }}
   {{- end }}
   {{- end }}

@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */}}
 
-  {{- if .Values.PodDisruptionBudget.enable }}
+{{- if .Values.PodDisruptionBudget.enable }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
   name: {{ include "haproxy.fullname" . }}
   labels:
-  {{- include "haproxy.labels" . | nindent 4 }}
+    {{- include "haproxy.labels" . | nindent 4 }}
 spec:
   {{- if .Values.PodDisruptionBudget.maxUnavailable }}
   maxUnavailable: {{ .Values.PodDisruptionBudget.maxUnavailable }}
@@ -30,5 +30,5 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-  {{- include "haproxy.selectorLabels" . | nindent 6 }}
-  {{- end }}
+    {{- include "haproxy.selectorLabels" . | nindent 6 }}
+{{- end }}

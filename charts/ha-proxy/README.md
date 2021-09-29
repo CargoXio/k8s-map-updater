@@ -4,10 +4,7 @@
 
 ## Introduction
 
-This chart bootstraps an HAProxy load balancer as deployment/daemonset on a [Kubernetes](http://kubernetes.io) cluster
-using the [Helm](https://helm.sh) package manager. As oposed
-to [HAProxy Kubernetes Ingress Controller](https://github.com/haproxytech/helm-charts/tree/main/kubernetes-ingress)
-Chart, HAProxy is installed as a regular application and not as an Ingress Controller.
+This chart bootstraps an HAProxy load balancer as deployment/daemonset on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager. As oposed to [HAProxy Kubernetes Ingress Controller](https://github.com/haproxytech/helm-charts/tree/main/kubernetes-ingress) Chart, HAProxy is installed as a regular application and not as an Ingress Controller.
 
 ### Prerequisites
 
@@ -18,13 +15,9 @@ Chart, HAProxy is installed as a regular application and not as an Ingress Contr
 
 ### Setup a Kubernetes Cluster
 
-The quickest way to setup a Kubernetes cluster is
-with [Azure Kubernetes Service](https://azure.microsoft.com/en-us/services/kubernetes-service/)
-, [AWS Elastic Kubernetes Service](https://aws.amazon.com/eks/)
-or [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/) using their respective quick-start guides.
+The quickest way to setup a Kubernetes cluster is with [Azure Kubernetes Service](https://azure.microsoft.com/en-us/services/kubernetes-service/), [AWS Elastic Kubernetes Service](https://aws.amazon.com/eks/) or [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/) using their respective quick-start guides.
 
-For setting up Kubernetes on other cloud platforms or bare-metal servers refer to the
-Kubernetes [getting started guide](http://kubernetes.io/docs/getting-started-guides/).
+For setting up Kubernetes on other cloud platforms or bare-metal servers refer to the Kubernetes [getting started guide](http://kubernetes.io/docs/getting-started-guides/).
 
 ### Install Helm
 
@@ -47,8 +40,7 @@ To install the chart with Helm v3 as _my-release_ deployment:
 helm install my-release haproxytech/haproxy
 ```
 
-**_NOTE_**: To install the chart with Helm v2 (legacy Helm) the syntax requires adding deployment name to `--name`
-parameter:
+**_NOTE_**: To install the chart with Helm v2 (legacy Helm) the syntax requires adding deployment name to `--name` parameter:
 
 ```console
 helm install haproxytech/haproxy \
@@ -66,8 +58,7 @@ helm install haproxytech/haproxy \
 
 ### Installing from a private registry
 
-To install the chart using a private registry for HAProxy (for instance to use a HAPEE image) into a separate
-namespace _prod_.
+To install the chart using a private registry for HAProxy (for instance to use a HAPEE image) into a separate namespace _prod_.
 
 **_NOTE_**: Helm v3 requires namespace to be precreated (eg. with `kubectl create namespace prod`)
 
@@ -92,22 +83,18 @@ helm install my-ingress haproxytech/haproxy  \
 
 ### Installing as DaemonSet
 
-Default image mode is [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/), but it is
-possible to use [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/) as well:
+Default image mode is [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/), but it is possible to use [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/) as well:
 
 ```console
 helm install my-haproxy2 haproxytech/haproxy \
   --set kind=DaemonSet
 ```
 
-**_NOTE_**: With helm `--set` it is needed to put quotes and escape dots in the annotation key and commas in the value
-string.
+**_NOTE_**: With helm `--set` it is needed to put quotes and escape dots in the annotation key and commas in the value string.
 
 ### Installing with Horizontal Pod Autoscaler
 
-[HPA](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) automatically scales number of
-replicas in Deployment or Replication Controller and adjusts replica count. Therefore we want to unset default
-replicaCount by setting corresponding key value to null and enable autoscaling:
+[HPA](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) automatically scales number of replicas in Deployment or Replication Controller and adjusts replica count. Therefore we want to unset default replicaCount by setting corresponding key value to null and enable autoscaling:
 
 ```console
 helm install my-haproxy3 haproxytech/haproxy \
@@ -121,8 +108,7 @@ helm install my-haproxy3 haproxytech/haproxy \
 
 ### Installing with service annotations
 
-On some environments like EKS and GKE there might be a need to pass service annotations. Syntax can become a little
-tedious however:
+On some environments like EKS and GKE there might be a need to pass service annotations. Syntax can become a little tedious however:
 
 ```console
 helm install my-haproxy4 haproxytech/haproxy \
@@ -132,13 +118,12 @@ helm install my-haproxy4 haproxytech/haproxy \
   --set service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-cross-zone-load-balancing-enabled"="true"
 ```
 
-**_NOTE_**: With helm `--set` it is needed to put quotes and escape dots in the annotation key and commas in the value
-string.
+**_NOTE_**: With helm `--set` it is needed to put quotes and escape dots in the annotation key and commas in the value string.
 
 ### Using values from YAML file
 
-As opposed to using many `--set` invocations, much simpler approach is to define value overrides in a separate YAML file
-and specify them when invoking Helm:
+As opposed to using many `--set` invocations, much simpler approach is to define value overrides in a separate YAML file and specify them when invoking Helm.
+The `config` block can also support using helm templates to populate dynamic values, e.g. `{{ .Release.Name }}`.
 
 _mylb.yaml_:
 
@@ -153,12 +138,13 @@ config: |
     log global
     timeout client 60s
     timeout connect 60s
-    timeout server 60s
+    timeout server {{ .Values.global.serverTimeout }}
   frontend fe_main
     bind :80
     default_backend be_main
   backend be_main
     server web1 10.0.0.1:8080 check
+    server web2 {{ .Release.Name }}-web:8080 check
 service:
   type: LoadBalancer
   annotations:
@@ -208,12 +194,28 @@ mountedSecrets:
 
 The above example assumes that there is a certificate in key `tls.crt` of a secret called `star-example-com`.
 
+### Using additional volumes and volumeMounts
+
+In order to load data from other sources (e.g. to preload something inside an init-container) you can mount additional volumes to the container:
+
+```yaml
+extraVolumes:
+  - name: tls
+    emptyDir: {}
+  - name: tmp
+    emptyDir:
+      medium: Memory
+
+extraVolumeMounts:
+  - name: tls
+    mountPath: /etc/tls
+  - name: tmp
+    mountPath: /tmp
+```
+
 ## Installing as non-root with binding to privileged ports
 
-To be able to bind to privileged ports such as tcp/80 and tcp/443 without root privileges (UID and GID are set to 1000
-in the example, as HAProxy Docker image has UID/GID of 1000 reserved for HAProxy), there is a special workaround
-required as `NET_BIND_SERVICE` capability is [not propagated](https://github.com/kubernetes/kubernetes/issues/56374), so
-we need to use `initContainers` feature as well:
+To be able to bind to privileged ports such as tcp/80 and tcp/443 without root privileges (UID and GID are set to 1000 in the example, as HAProxy Docker image has UID/GID of 1000 reserved for HAProxy), there is a special workaround required as `NET_BIND_SERVICE` capability is [not propagated](https://github.com/kubernetes/kubernetes/issues/56374), so we need to use `initContainers` feature as well:
 
 ```yaml
 kind: DaemonSet
