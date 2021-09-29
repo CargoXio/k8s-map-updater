@@ -1,0 +1,107 @@
+{{- $chart := "k8s-map-updater" -}}
+  {{- $fullName := include (print $chart ".fullname") . -}}
+  {{- $labels := include (print $chart ".labels") . -}}
+  {{- $selectorLabels := include (print $chart ".selectorLabels") . -}}
+  {{- $checksums := include (print $chart ".checksums") . -}}
+  {{- $serviceAccountName := include (print $chart ".serviceAccountName") . -}}
+  {{- $kind := "Deployment" -}}
+apiVersion: apps/v1
+kind: {{ $kind | quote }}
+metadata:
+  name: {{ $fullName | quote }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+  {{- $labels | nindent 4 }}
+  {{- with .Values.deployment.labels }}{{ toYaml . | nindent 4 }}{{ end }}
+  annotations:
+  {{- with .Values.deployment.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
+spec:
+  {{ if eq $kind "StatefulSet" }}serviceName: {{ $fullName }}{{ end }}
+  {{ if eq $kind "Deployment" }}{{ with .Values.strategy }}strategy: {{- toYaml . | nindent 4 }}{{ end }}{{ end }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+  {{- $selectorLabels | nindent 6 }}
+  template:
+    metadata:
+      labels:
+      {{- $selectorLabels | nindent 8 }}
+      {{- with .Values.pod.labels }}{{ toYaml . | nindent 8 }}{{- end }}
+      annotations:
+        # https://keel.sh/docs/#helm-same-tag-force-updates
+        # Current consensus on a best way to "force" update Helm releases is by modifying your pod spec template by adding:
+        date/deploy-date: {{ now | quote }}
+        {{- $checksums | nindent 8 }}
+    {{ with .Values.pod.annotations }}{{ toYaml . | nindent 8 }}{{ end }}
+    spec:
+      serviceAccountName: {{ $serviceAccountName | quote }}
+      {{ with .Values.imagePullSecrets }}imagePullSecrets: {{- toYaml . | nindent 8 }}{{- end }}
+      {{ if .Values.schedulerName }}schedulerName: {{ .Values.schedulerName | quote }}{{ end }}
+      {{ if .Values.priorityClassName }}priorityClassName: {{ .Values.priorityClassName | quote }}{{ end }}
+      {{ with .Values.pod.securityContext }}securityContext: {{- toYaml . | nindent 8 }}{{- end }}
+      {{ with .Values.nodeSelector }}nodeSelector: {{- toYaml . | nindent 8 }}{{- end }}
+      {{ with .Values.affinity }}affinity: {{- toYaml . | nindent 8 }} {{- end }}
+      {{ with .Values.tolerations }}tolerations: {{- toYaml . | nindent 8 }} {{- end }}
+
+      #
+      # Init containers
+      #
+      {{- if .Values.extraInitContainers }}
+      initContainers:
+      {{- tpl .Values.extraInitContainers . | nindent 6 }}
+      {{- end }}
+      containers:
+        - name: k8s-map-updater
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+            # If you update backend/Dockerfile, change this mount path
+            - mountPath: /opt/mapupdater
+              name: config
+          env:
+            - name: TEMPLATE_PATH
+              value: "/opt/mapupdater/template.tpl"
+            - name: CONFIG_NAME
+              value: "{{ .Values.configMap }}"
+            - name: KEY_NAME
+              value: "{{ .Values.keyName }}"
+            - name: SENTRY_DSN
+              value: "{{ .Values.sentryDsn }}"
+            - name: LABEL_SELECTOR
+              value: "{{ .Values.labelSelector }}"
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            failureThreshold: 2
+            periodSeconds: 60
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            failureThreshold: 2
+            periodSeconds: 60
+          resources:
+      {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $fullName }}

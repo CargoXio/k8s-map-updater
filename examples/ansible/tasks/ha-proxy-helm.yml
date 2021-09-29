@@ -1,0 +1,22 @@
+- name: "Install HaProxy"
+  community.kubernetes.helm:
+    name: "{{ name }}"
+    chart_ref: "ha-proxy"
+    chart_repo_url: https://cargoxio.github.io
+    namespace: "{{ namespace }}"
+    atomic: yes
+    wait: true
+    wait_timeout: 600s
+    values: "{{ values }}"
+  register: helm
+
+- name: Delete temporary directory on local
+  delegate_to: localhost
+  file:
+    state: absent
+    path: "{{ tempdir_local.path }}"
+
+- name: Delete temporary directory on remote
+  file:
+    state: absent
+    path: "{{ tempdir_remote.path }}"

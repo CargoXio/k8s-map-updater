@@ -5,13 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	k8s_runtime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"math"
 	"net/http"
 	"os"
@@ -21,6 +15,13 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	k8s_runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/getsentry/sentry-go"
@@ -33,6 +34,11 @@ import (
 
 const DefaultTemplatePath = "/opt/mapupdater/template.tpl"
 const TemplatePathEnvVar = "TEMPLATE_PATH"
+
+var version = ""
+var commit = ""
+var date = ""
+var builtBy = "manual"
 
 var TemplatePath = ""
 
@@ -242,30 +248,6 @@ func applyTemplate(client kubernetes.Interface, namespace string) {
 		metav1.PatchOptions{},
 	)
 
-	/*
-			payload := []struct {
-				Op    string `json:"op"`
-				Path  string `json:"path"`
-				Value string `json:"value"`
-			}{{
-				Op:    "replace",
-				Path:  fmt.Sprintf("/data/%s", KeyName),
-				Value: out.String(),
-			}}
-			data, err := json.Marshal(payload)
-		if err != nil {
-			log.WithError(err).Errorf("Failed converting patch object to JSON: %v", err)
-				return
-			}
-
-			_, err = client.CoreV1().ConfigMaps(namespace).Patch(
-				context.TODO(),
-				ConfigName,
-				types.JSONPatchType,
-				data,
-				metav1.PatchOptions{},
-			)
-	*/
 	if err != nil {
 		log.WithError(err).Errorf("Failed patching map %s/%s: %v", namespace, ConfigName, err)
 		return
@@ -371,6 +353,12 @@ func main() {
 	log.AddHook(ContextHook{})
 	log.SetLevel(log.DebugLevel)
 
+	if len(os.Args) > 0 && os.Args[1] == "version" {
+		log.Infof(os.Args[0])
+		log.Infof("Version: %s, Built by: %s at %s from %s", version, builtBy, date, commit)
+		os.Exit(0)
+	}
+
 	log.Infof("Starting up...")
 
 	dsn := os.Getenv("SENTRY_DSN")
@@ -383,6 +371,7 @@ func main() {
 	}
 
 	if dsn != "" {
+		log.Debugf("Initializing Sentry collection to %s", dsn)
 		err := sentry.Init(sentry.ClientOptions{
 			// Either set your DSN here or set the SENTRY_DSN environment variable.
 			Dsn: dsn,
@@ -398,7 +387,7 @@ func main() {
 		// Set the timeout to the maximum duration the program can afford to wait.
 		defer sentry.Flush(10 * time.Second)
 	} else {
-		log.Debugf("Skipping sentry init")
+		log.Tracef("Skipping sentry init")
 	}
 
 	var config *rest.Config
@@ -412,7 +401,7 @@ func main() {
 		panic(errors.WithStack(err))
 	}
 
-	ns, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	namespace, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
 		panic(errors.WithStack(err))
 	}
@@ -425,6 +414,11 @@ func main() {
 	KeyName = getFromEnv(KeyNameEnvVar, DefaultKeyName)
 	LabelSelector = getFromEnv(LabelSelectorEnvVar, DefaultLabelSelector)
 
+	log.Infof(
+		"Will update config %s/%s in namespace %s with template from file %s if any pods with label %s change or respawn",
+		ConfigName, KeyName, namespace, TemplatePath, LabelSelector,
+	)
+
 	_, err = getTemplate()
 	if err != nil {
 		panic(errors.WithStack(err))
@@ -433,9 +427,9 @@ func main() {
 	//Create a cache to store Pods
 	var podsStore cache.Store
 	//Watch for Pods
-	podsStore = watchPods(client, string(ns), podsStore)
+	podsStore = watchPods(client, string(namespace), podsStore)
 
-	_, err = watchConfig(client, string(ns))
+	_, err = watchConfig(client, string(namespace))
 	if err != nil {
 		panic(errors.WithStack(err))
 	}

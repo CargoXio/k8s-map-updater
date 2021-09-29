@@ -1,0 +1,135 @@
+# NOTICE: This is a double-escaped Ansible-Go template
+# It's basically a go template, but since we need to inject
+# a dyanamically assigned REDIS PASSWORD, we need to pass the
+# file through Ansible templating engine first. And as both
+# templating engines use double curly braces, we need to escape
+# Go's template braces in Ansible to make sure Ansible doesn't
+# process then.
+defaults
+mode                      tcp
+log                    global
+maxconn                 30000
+timeout connect           10s
+timeout server              0
+timeout client              0
+timeout queue             60s
+option                 tcplog
+option                logasap
+option      log-health-checks
+
+resolvers kubedns
+nameserver namesrv1 kube-dns.kube-system.svc.cluster.local:53
+resolve_retries             3
+timeout retry              1s
+hold other                 1s
+hold refused               1s
+hold nx                    1s
+hold timeout               1s
+hold valid                 1s
+
+listen health_check_http_url
+bind                    :8888
+mode                     http
+monitor-uri          /healthz
+option            dontlognull
+
+listen stats
+bind                  *:8404
+mode                    http
+stats                 enable
+stats  uri            /stats
+stats  refresh            5s
+stats  admin if         TRUE
+option httpchk   GET /status
+
+{{ '{{' }} $redisPods := .Pods {{ '}}' }}
+# decide redis backend to use
+frontend ft_redis_master
+bind *:6379
+{{ '{{' }} range $redisPods {{ '}}' }}
+{{ '{{' }} $len := len $redisPods {{ '}}' }}
+{{ '{{' }} $div := div $len 2 {{ '}}' }}
+{{ '{{' }} $sum := sum $div 0.1 {{ '}}' }}
+{{ '{{' }} $max := ceil $sum {{ '}}' }}
+use_backend {{ '{{' }} .Name {{ '}}' }} if { srv_is_up({{ '{{' }} .Name {{ '}}' }}/redis) } { nbsrv(sentinel_is_redis_master_{{ '{{' }} .Name {{ '}}' }}) ge {{ '{{' }} $max {{ '}}' }} }
+{{ '{{' }} end {{ '}}' }}
+default_backend redis-legacy
+
+
+{{ '{{' }} range $redisPods {{ '}}' }}
+
+# Setup redis backend and availability check
+backend {{ '{{' }} .Name {{ '}}' }}
+mode tcp
+balance first
+option tcp-check
+option tcp-smart-connect
+retry-on all-retryable-errors
+
+tcp-check connect port 6379
+tcp-check comment AUTH\ phase
+tcp-check send AUTH\ {{ redis_password }}\r\n
+tcp-check expect string +OK
+tcp-check comment PING\ phase
+tcp-check send PING\r\n
+tcp-check expect string +PONG
+tcp-check comment INFO\ REPLICATION\ phase
+tcp-check send INFO\ REPLICATION\r\n
+tcp-check expect rstring .*role:\s*master.*
+tcp-check comment QUIT\ phase
+tcp-check send QUIT\r\n
+tcp-check expect string +OK
+
+server redis {{ '{{' }} .Status.PodIP {{ '}}' }}:6379 maxconn 5000 check port 26379 inter 2s
+
+# Check if sentinel is responding and who he thinks the master is
+backend sentinel_is_redis_master_{{ '{{' }} .Name {{ '}}' }}
+mode tcp
+option tcp-check
+option tcp-smart-connect
+retry-on all-retryable-errors
+
+tcp-check connect port 26379
+tcp-check comment AUTH\ phase
+tcp-check send AUTH\ {{ redis_password }}\r\n
+tcp-check expect string +OK
+tcp-check comment PING\ phase
+tcp-check send PING\r\n
+tcp-check expect string +PONG
+tcp-check comment SENTINEL\ phase
+tcp-check send SENTINEL\ get-master-addr-by-name\ mymaster\r\n
+tcp-check expect string {{ '{{' }} .Status.PodIP {{ '}}' }}
+tcp-check comment QUIT\ phase
+tcp-check send QUIT\r\n
+tcp-check expect string +OK
+
+server sentinel-{{ '{{' }} .Name {{ '}}' }} {{ '{{' }} .Status.PodIP {{ '}}' }}:26379 check port 26379 inter 30s
+
+{{ '{{' }} end {{ '}}' }}
+
+#The legacy HA mode
+backend redis-legacy
+mode tcp
+balance first
+option tcp-check
+option tcp-smart-connect
+retry-on all-retryable-errors
+
+tcp-check comment AUTH\ phase
+tcp-check send AUTH\ {{ redis_password }}\r\n
+tcp-check expect string +OK
+tcp-check comment PING\ phase
+tcp-check send PING\r\n
+tcp-check expect string +PONG
+tcp-check comment INFO\ REPLICATION\ phase
+tcp-check send INFO\ REPLICATION\r\n
+tcp-check expect string role:master
+tcp-check comment QUIT\ phase
+tcp-check send QUIT\r\n
+tcp-check expect string +OK
+
+default-server check resolvers kubedns inter 1s downinter 1s fastinter 1s fall 1 rise 30 maxconn 330 no-agent-check on-error mark-down
+
+{{ '{{' }} range $redisPods {{ '}}' }}
+server redis-{{ '{{' }} .Name {{ '}}' }} {{ '{{' }} .Status.PodIP {{ '}}' }}:6379 check port 6379 maxconn 5000 inter 5s fall 1 rise 1
+{{ '{{' }} end {{ '}}' }}

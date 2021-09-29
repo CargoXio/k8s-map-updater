@@ -1,0 +1,13 @@
+{{- $chart := "k8s-map-updater" -}}
+  {{- $fullName := include (print $chart ".fullname") . -}}
+  {{- $labels := include (print $chart ".labels") . -}}
+  {{- $files := .Files -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullName }}
+  labels:
+  {{- $labels | nindent 4 }}
+data:
+  template.tpl: |
+    {{- index .Values "template.tpl" | nindent 4 }}

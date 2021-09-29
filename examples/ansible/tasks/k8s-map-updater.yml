@@ -1,0 +1,14 @@
+- name: "Install k8s-map-updater"
+  community.kubernetes.helm:
+    name: "redis-{{ cluster_name }}-k8s-map-updater"
+    chart_ref: "k8s-map-updater"
+    chart_repo_url: https://cargoxio.github.io
+    namespace: "margarita-redis"
+    atomic: yes
+    wait: true
+    wait_timeout: 600s
+    values:
+      configMap: "redis-{{ cluster_name }}-haproxy"
+      template.tpl: "{{ lookup('template', 'templates/ha-proxy.tpl') }}"
+      labelSelector: "app.kubernetes.io/instance=redis-{{ cluster_name }}"
+  register: helm

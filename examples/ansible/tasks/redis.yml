@@ -1,0 +1,122 @@
+- import_role: { name: redis }
+  vars:
+    release: "redis-{{ cluster_name }}"
+    namespace: redis
+    values:
+      global:
+        storageClass: "{{ defaultStorageClass }}"
+        redis:
+          password: "{{ redis_password }}"
+
+      auth:
+        enabled: true
+        sentinel: true
+        password: "{{ redis_password }}"
+
+      master:
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/instance: "redis-{{ cluster_name }}"
+                topologyKey: "kubernetes.io/hostname"
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 1
+                podAffinityTerm:
+                  topologyKey: "failure-domain.beta.kubernetes.io/zone"
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/instance: "redis-{{ cluster_name }}"
+
+        persistence:
+          enabled: true
+          storageClass: "{{ defaultStorageClass }}"
+          accessModes:
+            - ReadWriteOnce
+          size: 2Gi
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 900Mi
+
+      replica:
+        replicaCount: 3
+
+        persistence:
+          enabled: true
+          storageClass: "{{ defaultStorageClass }}"
+          accessModes:
+            - ReadWriteOnce
+          size: 2Gi
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+      cluster:
+        enabled: true
+
+      sentinel:
+        enabled: true
+        staticID: true
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+
+      rbac:
+        create: true
+
+      serviceAccount:
+        create: true
+
+      pdb:
+        create: true
+        minAvailable: 1
+
+      metrics:
+        enabled: true
+        sentinel:
+          enabled: true
+        serviceMonitor:
+          enabled: true
+
+        resources:
+          requests:
+            cpu: 10m
+            memory: 128Mi
+          limits:
+            cpu: 150m
+            memory: 256Mi
+
+      sysctl:
+        enabled: true
+        mountHostSys: true
+        command:
+          - /bin/sh
+          - -c
+          - |-
+            install_packages procps
+            sysctl -w net.core.somaxconn=10000
+            echo never > /host-sys/kernel/mm/transparent_hugepage/enabled
+
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 700m
+            memory: 256Mi

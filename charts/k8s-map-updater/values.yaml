@@ -1,0 +1,53 @@
+# Default values for k8s-map-updater.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/cargoxio/k8s-map-updater
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: [ ]
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: { }
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+resources: { }
+nodeSelector: { }
+tolerations: [ ]
+affinity: { }
+extraVolumes: [ ]
+extraVolumeMounts: [ ]
+extraInitContainers: [ ]
+extraEnv: [ ]
+extraContainers: [ ]
+
+deployment:
+  labels: { }
+  annotations: { }
+
+pod:
+  securityContext: { }
+  labels: { }
+  annotations: { }
+
+configMap: "redis-haproxy"
+keyName: "haproxy.cfg"
+template.tpl: ""
+
+sentryDsn: ""
+labelSelector: ""
+schedulerName: ""
+priorityClassName: ""
+

@@ -1,0 +1,4 @@
+- include_tasks: namespace.yml
+- include_tasks: redis.yml
+- include_tasks: ha-proxy.yml
+- include_tasks: k8s-map-updater.yml

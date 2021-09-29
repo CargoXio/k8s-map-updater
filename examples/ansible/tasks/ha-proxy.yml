@@ -1,0 +1,81 @@
+- name: "Get redis servers"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Pod
+    label_selectors:
+      - "app.kubernetes.io/name=redis"
+      - "app.kubernetes.io/instance=redis-{{ cluster_name }}"
+    namespace: margarita-redis
+  register: redis_instances
+
+- debug:
+    msg: "{{ lookup('template', 'templates/ha-proxy.cfg') }}"
+
+- include_tasks: ha-proxy-helm.yml
+  vars:
+    name: "redis-{{ cluster_name }}-haproxy"
+    namespace: "margarita-redis"
+    values:
+      image:
+        repository: haproxy
+        tag: 2.5-dev-alpine
+      serviceAccount:
+        create: true
+      kind: Deployment
+      replicaCount: 3
+      containerPorts:
+        health: 8888
+        stat: 8404
+        redis: 6379
+      config: "{{ lookup('template', 'templates/ha-proxy.cfg') }}"
+      annotations:
+        # This will discover deploymentconfigs/deployments/daemonsets/statefulset/rollouts automatically
+        # where foo-configmap or foo-secret is being used either via environment variable or from volume
+        # mount. It will automatically perform rolling upgrade of related pods when either foo-configmap,
+        # or foo-secret updated.
+        reloader.stakater.com/auto: "true"
+      resources:
+        limits:
+          cpu: 500m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 512Mi
+      ingress:
+        enabled: true
+        annotations:
+          # Run on private-facing network
+          kubernetes.io/ingress.class: "private"
+
+          ingress.kubernetes.io/custom-response-headers: "X-Robots-Tag: noindex, nofollow"
+
+          # Redirect HTTP to HTTPS
+          traefik.ingress.kubernetes.io/redirect-entry-point: websecure
+
+          # New cert-manager
+          cert-manager.io/cluster-issuer: letsencrypt-cert-manager
+          cert-manager.io/acme-challenge-type: dns01
+          cert-manager.io/acme-dns01-provider: default
+          external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"
+        hosts:
+          - host: "redis-haproxy.{{ private_zone }}"
+            paths:
+              - path: /
+        tls:
+          - hosts:
+              - "redis-haproxy.{{ private_zone }}"
+            secretName: "redis-haproxy.{{ private_zone }}"
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: "redis-{{ cluster_name }}-haproxy"
+              topologyKey: "kubernetes.io/hostname"
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              podAffinityTerm:
+                topologyKey: "failure-domain.beta.kubernetes.io/zone"
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/instance: "redis-{{ cluster_name }}-haproxy"

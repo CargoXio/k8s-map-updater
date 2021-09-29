@@ -1,0 +1,40 @@
+- name: "Make margarita-redis namespace"
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "margarita-redis"
+
+- name: "Set resource limits for the namespace"
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: LimitRange
+      metadata:
+        name: mem-limit-range # The name of the limit range object.
+        namespace: "margarita-redis"
+      spec:
+        limits:
+          - type: "Pod"
+            max:
+              cpu: "1000m" # The maximum amount of CPU that a pod can request on a node across all containers.
+              memory: "2Gi" # The maximum amount of memory that a pod can request on a node across all containers.
+            min:
+              cpu: "1m" # The minimum amount of CPU that a pod can request on a node across all containers.
+              memory: "1Mi" # The minimum amount of memory that a pod can request on a node across all containers.
+          - type: "Container"
+            max:
+              cpu: "1000m" # The maximum amount of CPU that a single container in a pod can request.
+              memory: "2Gi" # The maximum amount of memory that a single container in a pod can request.
+            min:
+              cpu: "1m" # The minimum amount of CPU that a single container in a pod can request.
+              memory: "1Mi" # The minimum amount of memory that a single container in a pod can request.
+            defaultRequest:
+              cpu: "100m" # The default amount of CPU that a container will request to use if not specified.
+              memory: "128Mi" # The default amount of memory that a container will request to use if not specified.
+            default:
+              cpu: "100m" # The default amount of CPU that a container will be limited to use if not specified.
+              memory: "256Mi" # The default amount of memory that a container will be limited to use if not specified.
+            maxLimitRequestRatio:
+              cpu: "100" # The maximum amount of CPU burst that a container can make as a ratio of its limit over request.

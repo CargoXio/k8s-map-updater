@@ -1,0 +1,164 @@
+name: Build charts and changelong
+on:
+  push:
+    tags: [ 'v*.*.*' ]
+
+jobs:
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v2
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v2
+        with:
+          ref: "gh-pages"
+          path: "gh-pages"
+          fetch-depth: 1
+
+      - name: Get release version
+        shell: bash
+        run: |
+          echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+          echo "::set-output name=RELEASE_VERSION::${GITHUB_REF#refs/*/}"
+          echo "::set-output name=SHORT_SHA::${GITHUB_SHA::7}"
+
+      - name: Builder info
+        run: |
+          echo "Name:      ${{ steps.buildx.outputs.name }}"
+          echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
+          echo "Status:    ${{ steps.buildx.outputs.status }}"
+          echo "Flags:     ${{ steps.buildx.outputs.flags }}"
+          echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          install: true
+
+      - name: Run HELM chart tests
+        run: ./charts/tests.sh
+
+      - name: Prepare changelog
+        uses: Bullrich/generate-release-changelog@master
+        id: Changelog
+        env:
+          REPO: ${{ github.repository }}
+
+      - name: Copy `README.md` and `LICENCE` into the helm chart
+        id: readme_and_licence
+        shell: bash
+        run: cp README.md LICENSE charts/mapupdater/
+
+      - name: Copy changelog into helm chart
+        id: copy_changelog
+        run: echo "${{ steps.Changelog.outputs.changelog }}" > charts/mapupdater/CHANGELOG.md
+
+      - name: Package mapupdater helm chart
+        uses: WyriHaximus/github-action-helm3@v2
+        with:
+          exec: helm package --app-version $RELEASE_VERSION --version $RELEASE_VERSION --destination ./gh-pages charts/mapupdater
+
+      - name: Package ha-proxy helm chart
+        uses: WyriHaximus/github-action-helm3@v2
+        with:
+          exec: helm package --app-version $RELEASE_VERSION --version $RELEASE_VERSION --destination ./gh-pages charts/ha-proxy
+
+      - name: Create helm chart index
+        uses: WyriHaximus/github-action-helm3@v2
+        with:
+          exec: cd gh-pages && rm -rf .git && helm repo index . --url https://cargoxio.github.io/k8s-map-updater
+
+      - name: Upload gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./gh-pages
+          tag_name: gh-pages-${{ steps.version_number.outputs.RELEASE_VERSION }}
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            ${{ steps.Changelog.outputs.changelog }}
+          draft: false
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Get release version
+        shell: bash
+        run: |
+          echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+          echo "::set-output name=RELEASE_VERSION::${GITHUB_REF#refs/*/}"
+          echo "::set-output name=SHORT_SHA::${GITHUB_SHA::7}"
+
+      - name: Builder info
+        run: |
+          echo "Name:      ${{ steps.buildx.outputs.name }}"
+          echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
+          echo "Status:    ${{ steps.buildx.outputs.status }}"
+          echo "Flags:     ${{ steps.buildx.outputs.flags }}"
+          echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          install: true
+
+      - name: Run HELM chart tests
+        run: ./charts/test.sh
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-single-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-single-buildx-
+
+      - name: Fix issue with building Alpine # See https://gitlab.alpinelinux.org/alpine/aports/-/issues/12406
+        run: |
+          update-binfmts --enable
+
+      - name: Build and push latest
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/cargoxio/k8s-map-updater:latest
+            ghcr.io/cargoxio/k8s-map-updater:${{ env.SHORT_SHA }}
+            ghcr.io/cargoxio/k8s-map-updater:${{ env.RELEASE_VERSION }}
+          platforms: "linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x"
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+          build-args: |
+
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
