@@ -10,7 +10,6 @@ COPY go.* /mapupdater/
 RUN go mod download
 COPY *.go /mapupdater/
 RUN go build -ldflags="-linkmode external -extldflags -static" -o mapupdater
-RUN upx -9 /mapupdater/mapupdater
 
 # ================================================ BUILD MAIN MODULE ===================================================
 # ================ linux/386 ================
@@ -62,9 +61,15 @@ COPY --from=build /mapupdater/mapupdater /mapupdater
 ENTRYPOINT [ "/mapupdater" ]
 
 # ================ linux/ppc64le ================
+FROM --platform=linux/ppc64le alpine AS upx
+RUN apk add --no-cache upx
+COPY --from=build /mapupdater/mapupdater /mapupdater
+RUN upx -9 /mapupdater
+RUN /mapupdater version
+
 FROM --platform=linux/ppc64le scratch
 LABEL maintainer="Bojan Cekrlic <b.cekrlic@cargox.io>"
-COPY --from=build /mapupdater/mapupdater /mapupdater
+COPY --from=upx /mapupdater /mapupdater
 ENTRYPOINT [ "/mapupdater" ]
 
 # ================ linux/mips ================

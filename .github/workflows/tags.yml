@@ -1,4 +1,4 @@
-name: Build charts and changelong
+name: Build charts and changelog
 on:
   push:
     tags: [ 'v*.*.*' ]
