@@ -56,11 +56,11 @@ jobs:
       - name: Copy `README.md` and `LICENCE` into the helm chart
         id: readme_and_licence
         shell: bash
-        run: cp README.md LICENSE charts/mapupdater/
+        run: cp README.md LICENSE charts/k8s-map-updater/
 
       - name: Copy changelog into helm chart
         id: copy_changelog
-        run: echo "${{ steps.Changelog.outputs.changelog }}" > charts/mapupdater/CHANGELOG.md
+        run: echo "${{ steps.Changelog.outputs.changelog }}" > charts/k8s-map-updater/CHANGELOG.md
 
       - name: Package mapupdater helm chart
         uses: WyriHaximus/github-action-helm3@v2
