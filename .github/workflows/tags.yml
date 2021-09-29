@@ -1,4 +1,5 @@
-name: Build charts and changelog
+name: Build release from tag
+
 on:
   push:
     tags: [ 'v*.*.*' ]

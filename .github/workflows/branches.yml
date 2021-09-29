@@ -1,4 +1,5 @@
-name: Build images from branches
+name: Build from branches
+
 on:
   push:
     branches: [ '*' ]
