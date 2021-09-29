@@ -25,7 +25,7 @@ for chart in $(find_charts); do
     for testcase in $(find_testcases "${chart}"); do
         printf "${gray}----------${reset} ${reset}${yellow}%s${reset} ${gray}----------${reset}\n" "${testcase}"
         helm template -f "${testcase}" --dry-run "${chart}" > "${FIXTURES}/${chart}-${testcase}.yml"
-        docker run -it -v "${FIXTURES}/:/fixtures/" garethr/kubeval  --strict --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/ "fixtures/${chart}-${testcase}.yml"
+        docker run -v "${FIXTURES}/:/fixtures/" garethr/kubeval  --strict --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/ "fixtures/${chart}-${testcase}.yml"
     done
 done
 
