@@ -1,0 +1,34 @@
+apiVersion: v1
+entries:
+  haproxy:
+  - apiVersion: v1
+    appVersion: v1.0.23
+    created: "2021-09-29T21:37:03.389785183Z"
+    description: A Helm chart for HAProxy on Kubernetes
+    digest: f1907f33e2b66e9ddc75dc8cdd6e7fffc3c8701de60c1cde8a120c2731f29fc4
+    home: https://github.com/haproxytech/helm-charts/tree/main/haproxy
+    icon: http://www.haproxy.org/img/HAProxyCommunityEdition_60px.png
+    keywords:
+    - haproxy
+    kubeVersion: '>=1.12.0-0'
+    maintainers:
+    - email: dkorunic@haproxy.com
+      name: Dinko Korunic
+    name: haproxy
+    sources:
+    - http://www.haproxy.org/
+    urls:
+    - https://cargoxio.github.io/k8s-map-updater/haproxy-v1.0.23.tgz
+    version: v1.0.23
+  k8s-map-updater:
+  - apiVersion: v2
+    appVersion: v1.0.23
+    created: "2021-09-29T21:37:03.390486488Z"
+    description: A Helm chart for Kubernetes
+    digest: 0c89bd2561d6b9e649a7dfd182e67721daa642ad821ed397b44933140075bccf
+    name: k8s-map-updater
+    type: application
+    urls:
+    - https://cargoxio.github.io/k8s-map-updater/k8s-map-updater-v1.0.23.tgz
+    version: v1.0.23
+generated: "2021-09-29T21:37:03.388433574Z"
