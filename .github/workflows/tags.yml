@@ -44,7 +44,7 @@ jobs:
           install: true
 
       - name: Run HELM chart tests
-        run: ./charts/tests.sh
+        run: cd charts && ./test.sh
 
       - name: Prepare changelog
         uses: Bullrich/generate-release-changelog@master
