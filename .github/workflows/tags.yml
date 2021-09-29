@@ -62,10 +62,10 @@ jobs:
         id: copy_changelog
         run: echo "${{ steps.Changelog.outputs.changelog }}" > charts/k8s-map-updater/CHANGELOG.md
 
-      - name: Package mapupdater helm chart
+      - name: Package k8s-map-updater helm chart
         uses: WyriHaximus/github-action-helm3@v2
         with:
-          exec: helm package --app-version $RELEASE_VERSION --version $RELEASE_VERSION --destination ./gh-pages charts/mapupdater
+          exec: helm package --app-version $RELEASE_VERSION --version $RELEASE_VERSION --destination ./gh-pages charts/k8s-map-updater
 
       - name: Package ha-proxy helm chart
         uses: WyriHaximus/github-action-helm3@v2
