@@ -1,10 +1,10 @@
-- name: "Make margarita-redis namespace"
+- name: "Make redis namespace"
   community.kubernetes.k8s:
     definition:
       apiVersion: v1
       kind: Namespace
       metadata:
-        name: "margarita-redis"
+        name: "redis"
 
 - name: "Set resource limits for the namespace"
   community.kubernetes.k8s:
@@ -13,7 +13,7 @@
       kind: LimitRange
       metadata:
         name: mem-limit-range # The name of the limit range object.
-        namespace: "margarita-redis"
+        namespace: "redis"
       spec:
         limits:
           - type: "Pod"
