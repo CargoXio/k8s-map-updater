@@ -5,7 +5,7 @@
     label_selectors:
       - "app.kubernetes.io/name=redis"
       - "app.kubernetes.io/instance=redis-{{ cluster_name }}"
-    namespace: margarita-redis
+    namespace: redis
   register: redis_instances
 
 - debug:
@@ -14,7 +14,7 @@
 - include_tasks: ha-proxy-helm.yml
   vars:
     name: "redis-{{ cluster_name }}-haproxy"
-    namespace: "margarita-redis"
+    namespace: "redis"
     values:
       image:
         repository: haproxy
