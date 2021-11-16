@@ -3,12 +3,37 @@ entries:
   haproxy:
   - annotations:
       artifacthub.io/changes: |
+        - Update base image to 2.5 release
+        - Add liveness probe
+        - Add externalTrafficPolicy
+    apiVersion: v2
+    appVersion: v1.0.26
+    created: "2021-11-16T11:43:37.306694106Z"
+    description: A Helm chart for HAProxy on Kubernetes
+    digest: 35692b09778d34514f102a31e56a34e1a6eac85722327b2b34f4c1068b73aca0
+    home: https://github.com/haproxytech/helm-charts/tree/main/haproxy
+    icon: http://www.haproxy.org/img/HAProxyCommunityEdition_60px.png
+    keywords:
+    - haproxy
+    kubeVersion: '>=1.12.0-0'
+    maintainers:
+    - email: dkorunic@haproxy.com
+      name: Dinko Korunic
+    name: haproxy
+    sources:
+    - http://www.haproxy.org/
+    type: application
+    urls:
+    - https://cargoxio.github.io/k8s-map-updater/haproxy-v1.0.26.tgz
+    version: v1.0.26
+  - annotations:
+      artifacthub.io/changes: |
         - Update base image to 2.4.4 release
         - Add liveness probe
         - Add externalTrafficPolicy
     apiVersion: v2
     appVersion: v1.0.25
-    created: "2021-09-29T21:58:42.701403946Z"
+    created: "2021-11-16T11:43:37.303556082Z"
     description: A Helm chart for HAProxy on Kubernetes
     digest: fcb44fe7b1a40f2d824e98254f98b7674a6ad90eb9c9968c5bb980046d48fa90
     home: https://github.com/haproxytech/helm-charts/tree/main/haproxy
@@ -33,7 +58,7 @@ entries:
         - Add externalTrafficPolicy
     apiVersion: v2
     appVersion: v1.0.24
-    created: "2021-09-29T21:58:42.699668464Z"
+    created: "2021-11-16T11:43:37.302325473Z"
     description: A Helm chart for HAProxy on Kubernetes
     digest: 039311350c5532d46b02fb7086adb1b133af799bf5ac370d066f70c2e0ee957d
     home: https://github.com/haproxytech/helm-charts/tree/main/haproxy
@@ -53,7 +78,7 @@ entries:
     version: v1.0.24
   - apiVersion: v1
     appVersion: v1.0.23
-    created: "2021-09-29T21:58:42.698767273Z"
+    created: "2021-11-16T11:43:37.301248665Z"
     description: A Helm chart for HAProxy on Kubernetes
     digest: f1907f33e2b66e9ddc75dc8cdd6e7fffc3c8701de60c1cde8a120c2731f29fc4
     home: https://github.com/haproxytech/helm-charts/tree/main/haproxy
@@ -72,8 +97,18 @@ entries:
     version: v1.0.23
   k8s-map-updater:
   - apiVersion: v2
+    appVersion: v1.0.26
+    created: "2021-11-16T11:43:37.319688704Z"
+    description: A Helm chart for Kubernetes
+    digest: ae3876cc746a9a7dee3fbf86fabf85dcc54f1fb5799e7d08dd035c4bf8cf45a1
+    name: k8s-map-updater
+    type: application
+    urls:
+    - https://cargoxio.github.io/k8s-map-updater/k8s-map-updater-v1.0.26.tgz
+    version: v1.0.26
+  - apiVersion: v2
     appVersion: v1.0.25
-    created: "2021-09-29T21:58:42.703800822Z"
+    created: "2021-11-16T11:43:37.319064299Z"
     description: A Helm chart for Kubernetes
     digest: 9cfa3569d8047820740675d56eb1a9538ff560ffd8e71f88963176c3bc57a6b4
     name: k8s-map-updater
@@ -83,7 +118,7 @@ entries:
     version: v1.0.25
   - apiVersion: v2
     appVersion: v1.0.24
-    created: "2021-09-29T21:58:42.70302363Z"
+    created: "2021-11-16T11:43:37.318415495Z"
     description: A Helm chart for Kubernetes
     digest: 94e7d8dc1b74595b10a420fac02ba638b2259770f019b8ae625f26b4ae6b23c6
     name: k8s-map-updater
@@ -93,7 +128,7 @@ entries:
     version: v1.0.24
   - apiVersion: v2
     appVersion: v1.0.23
-    created: "2021-09-29T21:58:42.702203138Z"
+    created: "2021-11-16T11:43:37.317737189Z"
     description: A Helm chart for Kubernetes
     digest: 0c89bd2561d6b9e649a7dfd182e67721daa642ad821ed397b44933140075bccf
     name: k8s-map-updater
@@ -101,4 +136,4 @@ entries:
     urls:
     - https://cargoxio.github.io/k8s-map-updater/k8s-map-updater-v1.0.23.tgz
     version: v1.0.23
-generated: "2021-09-29T21:58:42.697766283Z"
+generated: "2021-11-16T11:43:37.300049356Z"
