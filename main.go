@@ -353,7 +353,7 @@ func main() {
 	log.AddHook(ContextHook{})
 	log.SetLevel(log.DebugLevel)
 
-	if len(os.Args) > 0 && os.Args[1] == "version" {
+	if len(os.Args) > 1 && os.Args[1] == "version" {
 		log.Infof(os.Args[0])
 		log.Infof("Version: %s, Built by: %s at %s from %s", version, builtBy, date, commit)
 		os.Exit(0)

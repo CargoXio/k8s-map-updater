@@ -92,7 +92,7 @@ spec:
               add:
                 - NET_BIND_SERVICE
           {{- end }}
-          image: "{{ .Values.image.repository }}:{{ tpl .Values.image.tag . }}"
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion (tpl .Values.image.tag .) }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - -f
