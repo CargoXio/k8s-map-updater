@@ -64,17 +64,17 @@ jobs:
         run: echo "${{ steps.Changelog.outputs.changelog }}" > charts/k8s-map-updater/CHANGELOG.md
 
       - name: Package k8s-map-updater helm chart
-        uses: WyriHaximus/github-action-helm3@v2
+        uses: WyriHaximus/github-action-helm3@v3
         with:
           exec: helm package --app-version $RELEASE_VERSION --version $RELEASE_VERSION --destination ./gh-pages charts/k8s-map-updater
 
       - name: Package ha-proxy helm chart
-        uses: WyriHaximus/github-action-helm3@v2
+        uses: WyriHaximus/github-action-helm3@v3
         with:
           exec: helm package --app-version $RELEASE_VERSION --version $RELEASE_VERSION --destination ./gh-pages charts/ha-proxy
 
       - name: Create helm chart index
-        uses: WyriHaximus/github-action-helm3@v2
+        uses: WyriHaximus/github-action-helm3@v3
         with:
           exec: cd gh-pages && rm -rf .git && helm repo index . --url https://cargoxio.github.io/k8s-map-updater
 
